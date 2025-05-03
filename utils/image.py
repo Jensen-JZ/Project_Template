@@ -56,7 +56,7 @@ def compare_images_side_by_side(tensor_list, titles=None):
     Displays multiple images side by side for visual comparison.
 
     Args:
-        tensor_list (List[Tensor]): List of image tensors([C, H, W]) to be displayed.
+        tensor_list (List[Tensor]): List of image tensors ([C, H, W]) to be displayed.
         titles (List[str], optional): List of titles for each image. Defaults to None.
 
     Returns:
