@@ -111,6 +111,21 @@ def freeze_layers(model, layers_to_freeze=[], print_result=True):
                 print(f"Freezing layer: {name}")
 
 
+def freeze_all(model):
+    """
+    Freezes all parameters in the model to make them non-trainable.
+
+    Args:
+        model (nn.Module): The PyTorch model whose parameters are to be frozen.
+
+    Returns:
+        None
+    """
+    for param in model.parameters():
+        param.requires_grad = False
+    print("All layers are frozen.")
+
+
 def unfreeze_all(model):
     """
     Unfreezes all parameters in the model to make them trainable.
