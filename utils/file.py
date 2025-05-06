@@ -4,6 +4,9 @@ import os
 import pickle
 import shutil
 
+import pandas as pd
+import torch
+
 
 # ----------------------------------------------------
 # Path & Directory Utilities
@@ -289,6 +292,7 @@ def delete_sample(sample_dir, eval_id):
 # Cache Utilities (Pickle-based)
 # Functions for saving, loading, and checking cached Python objects.
 # ----------------------------------------------------
+geo_file_dir = "archive/geo_files"
 cache_dir = "archive/cache"
 
 
@@ -338,3 +342,20 @@ def exist_cache(filename):
         bool: True if the cache file exists, False otherwise.
     """
     return os.path.exists(os.path.join(cache_dir, filename))
+
+
+def load_gps_data(metadata_path):
+    """
+    Loads GPS data from a CSV file and converts it to a PyTorch tensor.
+
+    Args:
+        metadata_path (str): Path to the CSV file containing GPS data.
+
+    Returns:
+        Tensor: A PyTorch tensor containing the latitude and longitude data.
+    """
+
+    metadata_info = pd.read_csv(metadata_path)
+    lat_lon_data = metadata_info[["LAT", "LON"]].values
+    coordinates_tensor = torch.tensor(lat_lon_data, dtype=torch.float32)
+    return coordinates_tensor
