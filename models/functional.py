@@ -25,6 +25,7 @@ def sample_b(sigma: float, size: tuple) -> torch.Tensor:
     return torch.randn(size) * sigma
 
 
+@torch.jit.script
 def gaussian_encoding(v: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     """
     Applies Gaussian random feature encoding using a projection matrix.
@@ -42,6 +43,7 @@ def gaussian_encoding(v: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     return torch.cat((torch.cos(projected_v), torch.sin(projected_v)), dim=-1)
 
 
+@torch.jit.script
 def basic_encoding(v: torch.Tensor) -> torch.Tensor:
     """
     Applies a basic Fourier encoding without Gaussian projection.
@@ -58,6 +60,7 @@ def basic_encoding(v: torch.Tensor) -> torch.Tensor:
     return torch.cat((torch.cos(projected_v), torch.sin(projected_v)), dim=-1)
 
 
+@torch.jit.script
 def positional_encoding(v: torch.Tensor, sigma: float, m: int) -> torch.Tensor:
     """
     Applies multi-frequency sinusoidal encoding with exponentially spaced scales.
