@@ -456,4 +456,18 @@ def parse_args():
         help="List of pretrained model names or paths to load before training or evaluation.",
     )
 
+    parser.add_argument(
+        "--from_pretrained",
+        type=str2bool,
+        default=True,
+        help="Whether to load pretrained weights for the model. If True, loads weights from the specified path.",
+    )
+
+    parser.add_argument(
+        "--queue_size",
+        type=int,
+        default=4096,
+        help="Size of the queue for storing gps coordinates.",
+    )
+
     return parser.parse_args()
