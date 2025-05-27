@@ -1,3 +1,25 @@
+# main.py - Generic PyTorch Template Entry Point
+# -----------------------------------------------------------------------------
+# This script serves as the main entry point for the generic PyTorch template
+# from which this project was partially derived. It is designed to work with
+# the configuration system in `config.py` and the generic training/evaluation
+# loops provided in `solver/solver.py`.
+#
+# To use this generic template framework:
+# 1. Define your model architecture in `models/build.py`.
+# 2. Define your loss function(s) in `solver/loss.py`.
+# 3. Configure your experiment via command-line arguments (defined in `config.py`)
+#    or by providing a JSON configuration file.
+#
+# **Important Note for G3 Model Operations**:
+# The core functionalities and specific workflows for the G3 geolocalization
+# model (e.g., G3 training, FAISS indexing, LLM-based geolocation predictions)
+# are NOT primarily run through this `main.py` script.
+#
+# Instead, please use the dedicated launcher scripts located in the `scripts/`
+# directory. For more details, refer to `scripts/README.md` or the main
+# project `README.md`.
+# -----------------------------------------------------------------------------
 from munch import Munch
 
 from config import setup_cfg, validate_cfg, load_cfg, save_cfg, print_cfg
