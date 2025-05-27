@@ -1,3 +1,6 @@
+- [English](#features-directory-features)
+- [中文](#特性目录-features)
+
 # Features Directory (`features/`)
 
 ## Purpose
@@ -67,3 +70,73 @@ This directory currently contains the following key module:
     *   Mention its intended usage and the associated launcher script.
 
 By organizing complex operations and feature engineering tasks in this directory, the project maintains a clear separation of concerns and promotes reusability.
+
+# 特性目录 (`features/`)
+
+## 目的
+
+`features/` 目录旨在存放执行复杂操作的Python模块，这些操作涉及特征提取、超出简单前向传递的模型特定操作逻辑，或产生派生"特征"或结构化输出的复杂数据转换。这包括：
+
+*   **专业模型操作**：利用训练好的模型执行特定任务的函数，如生成用于索引的嵌入、执行最近邻搜索或复杂评估程序。
+*   **特征工程**：将原始或处理过的数据转换为适合模型消费或特定分析任务的特征表示的模块。
+*   **领域特定逻辑**：封装特定于某个领域或模型能力的逻辑，如地理空间计算、高级图像分析程序或自然语言处理特征提取。
+
+目的是将这些更复杂、通常是多步骤的操作与核心模型定义（`models/`）和基本训练循环（`training/`）分开。
+
+## 当前结构
+
+该目录目前包含以下关键模块：
+
+*   **`g3_geospatial_operations.py`**：提供基于G3模型的地理空间操作功能，包括FAISS索引、搜索和评估。
+
+## 模块：`g3_geospatial_operations.py`
+
+*   **主要角色**：此模块集中了使用G3模型执行地理空间任务的逻辑。它利用G3模型的嵌入来构建和搜索FAISS索引，然后评估这些搜索结果的质量，通常涉及使用LLM生成的候选坐标进行重新排序。
+
+*   **关键组件**：
+    *   **`GeoImageDataset` 类**：专为评估阶段设计的PyTorch `Dataset` 类。它加载查询图像及其相关的候选GPS坐标（源自LLM预测和初始搜索结果），以便由G3模型的位置理解能力进行重新排序。
+    *   **`build_index(args)` 函数**：接受参数（通常包括模型路径、设备和索引配置）并使用G3模型为数据集（例如MP16）生成嵌入。然后它从这些嵌入构建FAISS索引并将其保存到磁盘。
+    *   **`search_index(args, index, topk)` 函数**：接受参数、已加载的FAISS索引和`topk`值。它加载查询数据集（例如im2gps3k、yfcc4k），为这些查询生成G3嵌入，并搜索提供的FAISS索引以找到前`k`个最近邻。
+    *   **`evaluate(args, I)` 函数**：接受参数和搜索结果（索引`I`）。它加载查询数据集的真实值、数据库的真实值（例如MP16）以及可能由LLM生成的候选坐标。然后它执行评估，可能包括：
+        1.  基于FAISS搜索结果的前1名进行初步评估。
+        2.  使用`GeoImageDataset`和G3模型的图像和位置编码器对候选项进行重新排序，以选择最佳坐标集。
+        3.  计算各种阈值下的测地距离和准确度指标。
+
+*   **预期用法**：
+    *   `g3_geospatial_operations.py`中的函数设计为由启动器脚本导入和编排。
+    *   此模块的主要启动器是`scripts/execute_g3_geo_ops.py`。该脚本处理参数解析（模型路径、数据集路径、FAISS索引路径等），然后按适当顺序调用`build_index`、`search_index`和`evaluate`，管理FAISS索引加载/GPU传输。
+
+    **概念示例（来自`scripts/execute_g3_geo_ops.py`）：**
+    ```python
+    # In scripts/execute_g3_geo_ops.py
+    from features.g3_geospatial_operations import build_index, search_index, evaluate, res as faiss_gpu_resources
+    # ... (argparse setup for args) ...
+
+    # Build index if it doesn't exist
+    if not os.path.exists(index_file_path):
+        build_index(args)
+
+    # Load index and search
+    faiss_index_cpu = faiss.read_index(index_file_path)
+    # ... (optional: move index to GPU using faiss_gpu_resources) ...
+    D_results, I_results = search_index(args, faiss_index_gpu_or_cpu, args.search_topk)
+
+    # Evaluate results
+    evaluate(args, I_results)
+    ```
+
+## 添加新的特性相关模块
+
+1.  **定义范围**：确定你想要封装的操作或特征工程任务集。这可能与新模型、新数据类型或新分析方法相关。
+2.  **创建新模块**：向`features/`目录添加一个新的Python文件（例如`my_new_feature_extractor.py`）。
+3.  **实现核心逻辑**：在新模块中定义函数和/或类。确保它们有良好的文档记录。
+    *   函数理想情况下应该接受一个`args`对象或特定参数进行配置（例如模型路径、输入/输出数据路径、处理参数）。
+4.  **启动脚本**：在`scripts/`目录中创建相应的启动脚本（例如`scripts/execute_my_feature_extraction.py`）。此脚本将：
+    *   使用`argparse`处理命令行参数。
+    *   从你在`features/`中的新模块导入并调用函数/类。
+5.  **文档**：
+    *   更新此`README.md`，在"当前结构"部分包含你的新模块描述。
+    *   简要解释其角色和关键组件。
+    *   提及其预期用法和相关的启动脚本。
+
+通过在此目录中组织复杂操作和特征工程任务，项目保持了关注点的清晰分离并促进了重用性。

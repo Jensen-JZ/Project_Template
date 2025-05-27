@@ -1,5 +1,9 @@
 # Solver Directory (`solver/`)
 
+[English](#english) | [中文](#chinese)
+
+<a name="english"></a>
+
 ## Purpose
 
 The `solver/` directory is dedicated to managing the core logic of the model training and evaluation processes. It orchestrates the training loop, defines and computes loss functions, handles optimization procedures, implements learning rate scheduling, and includes any other utilities directly related to the "solving" or training of models. The main goal is to encapsulate the training mechanics, making them configurable and separable from model definitions and data loading.
@@ -62,3 +66,70 @@ To customize or extend the training process:
     *   Ideally, many aspects of the solver (learning rate, optimizer type, loss parameters) should be configurable via command-line arguments or a configuration file, which would be parsed by the main script that calls the solver (e.g., a script in `scripts/`). Ensure `solver.py` can accept these configurations.
 
 When making changes, especially to `solver.py`, ensure that logging and checkpointing mechanisms correctly reflect any new parameters or states you introduce.
+
+<a name="chinese"></a>
+
+# 求解器目录 (`solver/`)
+
+## 目的
+
+`solver/` 目录专门用于管理模型训练和评估过程的核心逻辑。它编排训练循环，定义并计算损失函数，处理优化过程，实现学习率调度，以及包含与模型"求解"或训练直接相关的其他工具。主要目标是封装训练机制，使其可配置并与模型定义和数据加载分离。
+
+## 当前结构和文件描述
+
+该目录当前包含以下Python模块：
+
+*   **`solver.py`**:
+    *   **描述**：这是训练过程的核心。它包含管理整体训练和评估循环的主要训练类或函数。这包括迭代数据，执行前向和反向传播，更新模型参数，调用调度器，以及记录训练进度。
+*   **`loss.py`**:
+    *   **描述**：包含模型训练期间使用的各种损失函数的定义。这可能包括标准损失（如CrossEntropyLoss、MSELoss）或为特定任务定制的损失（如对比损失如CLIPLoss，或专门的地理定位损失）。
+*   **`misc.py`**:
+    *   **描述**：一系列对求解器和训练/评估过程特别有帮助的杂项实用函数和类。这可能包括自定义学习率调度器、提前停止机制或`utils/logger.py`未涵盖的特定日志辅助工具。
+*   **`utils.py`**:
+    *   **描述**：提供支持`solver.py`和该目录中其他模块操作的其他通用实用函数。这可能包括将数据移动到设备的函数、训练步骤中使用的简单指标计算，或与求解器操作密切相关但不属于主循环或损失计算的其他辅助功能。
+
+## 组件交互
+
+`solver/` 目录内的组件紧密协作：
+
+1.  **`solver.py`（主编排器）**:
+    *   初始化模型、优化器和学习率调度器。
+    *   迭代由`DataLoader`实例（在`data/loader.py`中定义并使用`data/dataset.py`）提供的数据。
+    *   对每个批次，它通过模型执行前向传递。
+    *   然后利用**`loss.py`**中的函数或类计算模型预测与真实标签之间的损失。
+    *   计算的损失用于执行反向传递并通过优化器更新模型权重。
+    *   它可能调用**`misc.py`**或**`utils.py`**中的实用函数，用于记录中间结果、根据自定义计划调整学习率或检查提前停止条件等任务。
+    *   在评估阶段，它将使用模型进行预测，可能再次使用**`loss.py`**进行验证损失计算，或使用`metrics/`中的函数（如果可用）进行详细的性能评估。
+
+2.  **`loss.py`**:
+    *   提供由`solver.py`调用的损失计算逻辑。它以模型输出和真实数据作为输入。
+
+3.  **`misc.py`和`utils.py`**:
+    *   提供支持函数，根据需要被`solver.py`甚至`loss.py`导入和使用，以简化操作并保持主`solver.py`代码的重点明确。
+
+## 自定义训练过程
+
+要自定义或扩展训练过程：
+
+1.  **修改损失函数**:
+    *   要使用不同的损失函数，可以在`loss.py`中定义它，然后修改`solver.py`来实例化并使用您的新损失。
+    *   确保新损失函数与模型的输出和可用的真实数据兼容。
+
+2.  **更改优化器或学习率调度器**:
+    *   `solver.py`是优化器（如Adam、SGD）和学习率调度器（如StepLR、ReduceLROnPlateau）通常初始化的地方。您可以通过修改`solver.py`中的实例化来更改这些。
+    *   对于PyTorch中不可用的自定义学习率调度器，您可以在`misc.py`中定义它们，然后在`solver.py`中使用。
+
+3.  **调整训练循环逻辑**:
+    *   核心训练循环（前向传递、损失计算、反向传递、优化器步骤）位于`solver.py`中。对此序列的修改或每步/每轮添加自定义操作应在此处进行。
+    *   例如，要实现梯度累积，您将修改`solver.py`中循环内的反向传递和优化器步骤逻辑。
+
+4.  **添加自定义回调或钩子**:
+    *   如果您需要在训练的不同阶段执行特定操作（如轮次结束、训练开始），可以添加回调函数。这些可以在`misc.py`中定义或直接在`solver.py`中定义，并在训练循环的适当点调用。
+
+5.  **新工具**:
+    *   如果您的自定义需要新的辅助函数，请根据其特定性和范围将它们添加到`misc.py`或`utils.py`。
+
+6.  **配置**:
+    *   理想情况下，求解器的许多方面（学习率、优化器类型、损失参数）应该可以通过命令行参数或配置文件进行配置，这些将由调用求解器的主脚本（如`scripts/`中的脚本）解析。确保`solver.py`能够接受这些配置。
+
+在进行更改时，尤其是对`solver.py`的更改，确保日志和检查点机制正确反映您引入的任何新参数或状态。
