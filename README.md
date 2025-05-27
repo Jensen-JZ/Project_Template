@@ -78,7 +78,6 @@ The project is organized into the following main directories and files:
         ```bash
         pip install -r requirements.txt
         ```
-        *(Note: `requirements.txt` may need review to ensure it matches the generic template's needs.)*
 
 2.  **Prepare Data**:
     *   Organize your dataset into `train` and `test` folders. For image data, `torchvision.datasets.ImageFolder` expects subdirectories for each class within `train_path` and `test_path`. `DefaultDataset` expects a flat list of images.
@@ -173,7 +172,7 @@ It's recommended to use a virtual environment (like Conda or venv) to manage pro
 
 ---
 
-*This template was refactored from an earlier GAN-specific version, inspired by StarGAN v2's official implementation. The goal is to provide a cleaner, more generic starting point for diverse PyTorch projects.*
+*This template was refactored from songquanpeng's [pytorch-template](https://github.com/songquanpeng/pytorch-template) template project. The goal is to provide a cleaner, more generic starting point for various PyTorch projects.*
 
 <a id="chinese"></a>
 
@@ -253,7 +252,6 @@ It's recommended to use a virtual environment (like Conda or venv) to manage pro
         ```bash
         pip install -r requirements.txt
         ```
-        *（注意：可能需要检查 `requirements.txt` 以确保它符合通用模板的需求。）*
 
 2.  **准备数据**:
     *   将数据集组织到 `train` 和 `test` 文件夹中。对于图像数据，`torchvision.datasets.ImageFolder` 期望在 `train_path` 和 `test_path` 内为每个类别设置子目录。`DefaultDataset` 期望有一个平面的图像列表。
@@ -348,4 +346,4 @@ It's recommended to use a virtual environment (like Conda or venv) to manage pro
 
 ---
 
-*此模板从早期的 GAN 特定版本重构而来，灵感来自 StarGAN v2 的官方实现。目标是为各种 PyTorch 项目提供一个更干净、更通用的起点。*
+*此模板从songquanpeng的[pytorch-template](https://github.com/songquanpeng/pytorch-template)模板项目重构而来。目标是为各种 PyTorch 项目提供一个更干净、更通用的起点。*
