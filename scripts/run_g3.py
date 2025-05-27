@@ -4,8 +4,8 @@ import numpy as np
 import time
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from utils.utils import MP16Dataset
-from utils.G3 import G3
+from utils.g3_utils import MP16Dataset
+from models.G3 import G3
 from accelerate import Accelerator, DistributedDataParallelKwargs
 import warnings
 

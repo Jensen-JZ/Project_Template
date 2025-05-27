@@ -9,7 +9,7 @@ import itertools
 from PIL import Image
 from geopy.distance import geodesic
 from transformers import CLIPImageProcessor, CLIPModel
-from utils.utils import MP16Dataset, im2gps3kDataset, yfcc4kDataset
+from utils.g3_utils import MP16Dataset, im2gps3kDataset, yfcc4kDataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
