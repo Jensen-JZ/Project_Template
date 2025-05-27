@@ -5,7 +5,7 @@ import pandas as pd
 import itertools
 from transformers import CLIPTokenizer, CLIPImageProcessor, CLIPModel
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
-from .rff.layers import GaussianEncoding
+from utils.rff.layers import GaussianEncoding
 from pyproj import Proj, Transformer
 
 class LocationEncoderCapsule(nn.Module):
