@@ -2,23 +2,6 @@ import datetime
 import os
 import subprocess
 
-import requests
-
-
-def send_message(message, exp_id=""):
-    url = os.environ.get('MESSAGE_PUSH_URL')
-    if url:
-        try:
-            url = f"{url}?type=corp&title={exp_id}&description={message}"
-            res = requests.get(url)
-            if res.status_code != 200:
-                print('Failed to send message.')
-        except:
-            print('Failed to send message.')
-    else:
-        print(message)
-
-
 def get_datetime(short=False):
     format_str = '%Y%m%d%H%M%S' if short else '%Y-%m-%d_%H-%M-%S'
     return datetime.datetime.now().strftime(format_str)

@@ -13,11 +13,6 @@ def he_init(module):
             nn.init.constant_(module.bias, 0)
 
 
-def moving_average(model, model_ema, beta):
-    for param, param_ema in zip(model.parameters(), model_ema.parameters()):
-        param_ema.data = torch.lerp(param.data, param_ema.data, beta)
-
-
 def requires_grad(model, flag=True):
     for parameter in model.parameters():
         parameter.requires_grad = flag
