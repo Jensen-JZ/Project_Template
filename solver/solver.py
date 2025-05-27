@@ -1,5 +1,6 @@
 import datetime
 import os
+import subprocess
 import time
 import functools
 
@@ -15,8 +16,8 @@ from solver.loss import compute_loss # Updated to generic compute_loss
 # from solver.misc import translate_using_latent, generate_samples # Removed, misc.py is now minimal
 from solver.utils import he_init # moving_average removed from direct use here
 from utils.checkpoint import CheckpointIO
-from utils.file import delete_dir, write_record, delete_model, delete_sample # delete_model/sample might be simplified later
-from utils.misc import get_datetime, send_message
+from utils.file import delete_dir, write_record, delete_model #, delete_sample # delete_model/sample might be simplified later
+from utils.misc import get_datetime #, send_message
 from utils.model import count_parameters
 
 
@@ -28,77 +29,63 @@ class Solver:
         # build_model now returns nets (with .model) and optionally nets_ema
         # We will primarily use nets.model and ignore nets_ema for simplification
         self.nets, nets_ema_from_build = build_model(args) # nets_ema_from_build might be None or a simple model
-        
-        # Count parameters for the main model
-        if hasattr(self.nets, 'model') and self.nets.model is not None:
-            count_parameters(self.nets.model, 'model')
-            if args.multi_gpu:
-                self.nets.model = nn.DataParallel(self.nets.model)
-            self.nets.model.to(self.device)
-        else:
-            # Fallback or error if nets.model is not what's expected
-            # This could happen if build_model is not returning the expected structure.
-            # For now, we assume nets.model exists.
-            print("Warning: self.nets.model is not properly defined by build_model.")
-            # As a minimal fallback, create a dummy model if none exists to prevent crashes,
-            # though this indicates a deeper issue with model definition.
-            if not hasattr(self.nets, 'model'):
-                 self.nets.model = nn.Linear(1,1).to(self.device) # Dummy model
 
-        # EMA models are being simplified out of the main solver logic
-        # If nets_ema_from_build.model_ema exists, move to device but don't create optimizer or checkpoint for it.
-        if hasattr(nets_ema_from_build, 'model_ema') and nets_ema_from_build.model_ema is not None:
-            nets_ema_from_build.model_ema.to(self.device)
-            self.nets_ema = nets_ema_from_build # Keep it if provided, but won't be actively used in training loop
+        if isinstance(self.nets, str) and self.nets == "g3_external":
+            print("Solver: External model 'g3_external' detected. Skipping model & optimizer initialization in Solver.__init__.")
+            self.nets_ema = "g3_external" if isinstance(nets_ema_from_build, str) and nets_ema_from_build == "g3_external" else Munch(model_ema=None)
+            self.optims = Munch() # No optimizers for external model
+            self.ckptios = [] # No checkpointing for external model by solver
         else:
-            self.nets_ema = Munch(model_ema=None) # Ensure nets_ema exists but is empty
+            # Standard model initialization path
+            if hasattr(self.nets, 'model') and self.nets.model is not None and isinstance(self.nets.model, nn.Module):
+                count_parameters(self.nets.model, 'model')
+                if args.multi_gpu:
+                    self.nets.model = nn.DataParallel(self.nets.model)
+                self.nets.model.to(self.device)
+            else:
+                print("Warning: self.nets.model is not properly defined by build_model (and self.nets is not 'g3_external').")
+                if not isinstance(self.nets, Munch): self.nets = Munch() # Ensure self.nets is a Munch
+                self.nets.model = nn.Linear(1,1).to(self.device) # Dummy model
+                print("Warning: Created a dummy self.nets.model.")
 
-        if args.mode == 'train':
-            # Setup a single optimizer for self.nets.model
-            self.optims = Munch()
-            if hasattr(self.nets, 'model') and self.nets.model is not None:
-                 # Check if model is in pretrained_models (assuming 'model' is the key if it was)
-                if 'model' not in args.pretrained_models: # Adjust if model name in nets can vary
-                    self.optims.model = torch.optim.Adam(
-                        params=self.nets.model.parameters(),
-                        lr=args.lr, # Use generic learning rate
-                        betas=(args.beta1, args.beta2), # These args were kept in config
-                        weight_decay=args.weight_decay) # This arg was kept in config
+            if hasattr(nets_ema_from_build, 'model_ema') and nets_ema_from_build.model_ema is not None and isinstance(nets_ema_from_build.model_ema, nn.Module):
+                nets_ema_from_build.model_ema.to(self.device)
+                self.nets_ema = nets_ema_from_build
+            else:
+                self.nets_ema = Munch(model_ema=None)
+
+            if args.mode == 'train':
+                self.optims = Munch()
+                if hasattr(self.nets, 'model') and isinstance(self.nets.model, nn.Module):
+                    if 'model' not in args.pretrained_models:
+                        self.optims.model = torch.optim.Adam(
+                            params=self.nets.model.parameters(),
+                            lr=args.lr, betas=(args.beta1, args.beta2),
+                            weight_decay=args.weight_decay)
+                    else:
+                        print("Model is specified in pretrained_models, not creating optimizer for it.")
                 else:
-                    print("Model is specified in pretrained_models, not creating optimizer for it.")
-            else:
-                print("Error: self.nets.model is None, cannot create optimizer.")
+                    print("Error: self.nets.model is not an nn.Module, cannot create optimizer.")
 
-
-            # Checkpoint for nets.model and its optimizer
-            # Ensure self.nets.model exists before creating CheckpointIO
-            if hasattr(self.nets, 'model') and self.nets.model is not None:
-                ckpt_objects = {'model': self.nets.model}
-                if hasattr(self.optims, 'model'): # only if optimizer was created
-                     ckpt_objects_optims = {'model_optim': self.optims.model}
-                     self.ckptios = [
-                         CheckpointIO(args.model_dir + '/{:06d}_model.ckpt', multi_gpu=args.multi_gpu, **ckpt_objects),
-                         CheckpointIO(args.model_dir + '/{:06d}_optims.ckpt', **ckpt_objects_optims)
-                     ]
-                else: # No optimizer (e.g. model is pretrained)
-                    self.ckptios = [
-                        CheckpointIO(args.model_dir + '/{:06d}_model.ckpt', multi_gpu=args.multi_gpu, **ckpt_objects)
-                    ]
-            else: # Fallback if model is not defined
                 self.ckptios = []
-                print("Warning: self.nets.model not found, no checkpoints will be saved for the model.")
+                if hasattr(self.nets, 'model') and isinstance(self.nets.model, nn.Module):
+                    ckpt_objects_model = {'model': self.nets.model}
+                    self.ckptios.append(CheckpointIO(args.model_dir + '/{:06d}_model.ckpt', multi_gpu=args.multi_gpu, **ckpt_objects_model))
+                    if hasattr(self.optims, 'model') and self.optims.model is not None:
+                         ckpt_objects_optims = {'model_optim': self.optims.model}
+                         self.ckptios.append(CheckpointIO(args.model_dir + '/{:06d}_optims.ckpt', **ckpt_objects_optims))
+                else:
+                    print("Warning: self.nets.model not found or not nn.Module, no model checkpoints will be saved.")
 
-        else: # eval or sample mode
-            if hasattr(self.nets, 'model') and self.nets.model is not None:
-                 # Load the main model for eval/sample. EMA model is not used.
-                 self.ckptios = [CheckpointIO(args.model_dir + '/{:06d}_model.ckpt', multi_gpu=args.multi_gpu, model=self.nets.model)]
-            elif hasattr(self.nets_ema, 'model_ema') and self.nets_ema.model_ema is not None:
-                # Fallback to EMA model if main model not found and EMA exists (legacy case)
-                print("Warning: Main model not found for eval, attempting to load EMA model.")
-                self.ckptios = [CheckpointIO(args.model_dir + '/{:06d}_nets_ema.ckpt', model_ema=self.nets_ema.model_ema)] # Old naming
-            else:
+            else: # eval or sample mode
                 self.ckptios = []
-                print("Warning: No model found for eval/sample mode checkpointing.")
+                if hasattr(self.nets, 'model') and isinstance(self.nets.model, nn.Module):
+                     self.ckptios.append(CheckpointIO(args.model_dir + '/{:06d}_model.ckpt', multi_gpu=args.multi_gpu, model=self.nets.model))
+                elif hasattr(self.nets_ema, 'model_ema') and isinstance(self.nets_ema.model_ema, nn.Module):
+                    print("Warning: Main model not found for eval, attempting to load EMA model.")
+                    self.ckptios.append(CheckpointIO(args.model_dir + '/{:06d}_nets_ema.ckpt', model_ema=self.nets_ema.model_ema))
+                else:
+                    print("Warning: No model (main or EMA) found for eval/sample mode checkpointing.")
 
 
         self.use_tensorboard = args.use_tensorboard
@@ -157,6 +144,24 @@ class Solver:
         # else: print an error or handle cases where no optimizer is present (e.g. eval mode)
 
     def train(self, loaders):
+        if self.nets == "g3_external":
+            print("Detected G3 model. Running external G3 training script: models/G3/run_G3.py")
+            cmd = ["python", "run_G3.py"] # Path is relative to cwd
+            try:
+                print(f"Executing command: {' '.join(cmd)} from CWD: models/G3")
+                result = subprocess.run(cmd, check=True, cwd="models/G3", capture_output=True, text=True)
+                print("G3 training script finished successfully.")
+                print("stdout:\n", result.stdout)
+                if result.stderr:
+                    print("stderr:\n", result.stderr)
+            except subprocess.CalledProcessError as e:
+                print(f"G3 training script failed with exit code {e.returncode}")
+                print("stdout:\n", e.stdout)
+                print("stderr:\n", e.stderr)
+            except FileNotFoundError:
+                print(f"Error: Could not find the script run_G3.py in models/G3/ or python interpreter.")
+            return
+
         args = self.args
         nets = self.nets # This now primarily means nets.model
         optims = self.optims # This now primarily means optims.model
@@ -330,10 +335,10 @@ class Solver:
                     print("No data in test_loader for evaluation.")
                 
                 # Removed FID and complex best model tracking/deletion
-                # send_message(info, args.exp_id) # Removed send_message for simplicity
+                # send_message(info, args.exp_id) # Removed send_message for simplicity, commented out
 
         self.record(f"Model training completed. Best validation metric ({list(all_eval_loss_items.keys())[0] if all_eval_loss_items else 'N/A'}): {best_metric:.4f} at step {best_step}")
-        # send_message("Model training completed.", args.exp_id) # Removed
+        # send_message("Model training completed.", args.exp_id) # Removed, commented out
 
     @torch.no_grad()
     def sample(self, loaders):

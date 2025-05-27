@@ -1,0 +1,20 @@
+{
+  "about": "Configuration for running the G3 model example.",
+  "exp_id": "g3_example_run",
+  "mode": "train",
+  "model_name": "g3",
+  "dataset": "g3_custom_mp16",
+  "train_path": "data/g3_dummy_train_path/",
+  "test_path": "data/g3_dummy_test_path/",
+  "input_shape": [256, 256],
+  "device": "cpu",
+  "batch_size": 64,
+  "num_workers": 4,
+  "lr": 1e-4,
+  "start_iter": 0,
+  "end_iter": 10,
+  "log_every": 1,
+  "save_every": 1,
+  "eval_every": 1,
+  "use_tensorboard": true
+}

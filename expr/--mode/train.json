@@ -1,0 +1,32 @@
+{
+    "about": "Configuration for running the G3 model example.",
+    "batch_size": 64,
+    "dataset": "g3_custom_mp16",
+    "device": "cpu",
+    "end_iter": 10,
+    "eval_dir": "expr/--mode/eval",
+    "eval_every": 1,
+    "exp_dir": "expr",
+    "exp_id": "--mode",
+    "hash": "829eb2",
+    "input_shape": [
+        256,
+        256
+    ],
+    "log_dir": "expr/--mode/logs",
+    "log_every": 1,
+    "loss_file": "expr/--mode/losses.csv",
+    "lr": 0.0001,
+    "mode": "train",
+    "model_dir": "expr/--mode/models",
+    "model_name": "g3",
+    "multi_gpu": false,
+    "num_workers": 4,
+    "record_file": "expr/--mode/records.txt",
+    "sample_dir": "expr/--mode/samples",
+    "save_every": 1,
+    "start_iter": 0,
+    "test_path": "data/g3_dummy_test_path/",
+    "train_path": "data/g3_dummy_train_path/",
+    "use_tensorboard": true
+}

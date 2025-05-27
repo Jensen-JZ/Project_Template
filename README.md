@@ -159,6 +159,42 @@ To adapt this template for your specific deep learning project:
     *   While the existing loops are generic, you might want to customize aspects of the training (e.g., learning rate schedulers, gradient clipping), visualization, or evaluation.
     *   The `Solver.sample()` method will likely need significant customization to produce meaningful outputs for your task.
 
+## Running the G3 Model Example
+
+This template now includes an example of how to integrate and run the G3 model (P. Jia et al., 2024), a framework for worldwide geolocalization. The G3 model has its own specific setup and training script, which is called by this template when selected.
+
+### 1. Environment Setup
+
+*   **General Dependencies**: Ensure you have installed all dependencies from the main `requirements.txt`:
+    ```bash
+    pip install -r requirements.txt
+    ```
+    This includes `accelerate`, `transformers`, and other packages needed by G3.
+*   **G3 Specifics**: The G3 model was tested with specific PyTorch versions (torch 2.1.1, torchvision 0.16.1 for CUDA 12.1). Refer to the `models/G3/README.md` for details on setting up a Conda environment tailored for G3 if you encounter issues. The `requirements.txt` has been updated to reflect these versions.
+
+### 2. Data Preparation for G3
+
+The G3 model uses its own datasets and data loading procedures, detailed in `models/G3/README.md`:
+
+*   **Download Datasets**: Follow the instructions in `models/G3/README.md` to download the required datasets (e.g., MP16-Pro). The template's `--train_path` and `--test_path` arguments are not directly used by the G3 training script but are required by the template's configuration.
+*   **Location Encoder**: Download the `location_encoder.pth` file (as mentioned in G3's documentation, typically from GeoCLIP) and place it directly inside the `models/G3/` directory. The `run_G3.py` script expects it at `models/G3/location_encoder.pth`.
+
+### 3. Running G3 Training (Geo-Alignment)
+
+*   An example configuration file `g3_train_config.json` is provided in the root directory.
+*   To run the G3 training (specifically, the geo-alignment part as described in the G3 paper):
+    ```bash
+    python main.py g3_train_config.json --mode train
+    ```
+*   This command will use the template's `main.py` script, which will then detect the `"g3"` model type and execute the `models/G3/run_G3.py` script. The `run_G3.py` script will handle its own training process, including data loading (MP16Dataset) and model checkpointing within the `models/G3/checkpoints/` directory.
+*   Output and logs from `run_G3.py` will be printed to the console.
+
+### 4. Other G3 Functionalities
+
+The G3 framework includes other stages like Geo-diversification and Geo-verification. These are **not** currently integrated into the template's `main.py --mode eval` or `--mode sample` flows.
+
+*   To perform these additional steps, please follow the instructions provided in `models/G3/README.md` (e.g., using `IndexSearch.py`, `llm_predict.py`, etc., directly from the `models/G3/` directory).
+
 ## Dependencies
 
 Key dependencies include:
@@ -332,6 +368,42 @@ It's recommended to use a virtual environment (like Conda or venv) to manage pro
 7.  **求解器逻辑 (`solver/solver.py`)**:
     *   虽然现有的循环是通用的，但您可能想要自定义训练的某些方面（例如，学习率调度器、梯度裁剪）、可视化或评估。
     *   `Solver.sample()` 方法可能需要重大自定义，以为您的任务生成有意义的输出。
+
+## Running the G3 Model Example
+
+This template now includes an example of how to integrate and run the G3 model (P. Jia et al., 2024), a framework for worldwide geolocalization. The G3 model has its own specific setup and training script, which is called by this template when selected.
+
+### 1. Environment Setup
+
+*   **General Dependencies**: Ensure you have installed all dependencies from the main `requirements.txt`:
+    ```bash
+    pip install -r requirements.txt
+    ```
+    This includes `accelerate`, `transformers`, and other packages needed by G3.
+*   **G3 Specifics**: The G3 model was tested with specific PyTorch versions (torch 2.1.1, torchvision 0.16.1 for CUDA 12.1). Refer to the `models/G3/README.md` for details on setting up a Conda environment tailored for G3 if you encounter issues. The `requirements.txt` has been updated to reflect these versions.
+
+### 2. Data Preparation for G3
+
+The G3 model uses its own datasets and data loading procedures, detailed in `models/G3/README.md`:
+
+*   **Download Datasets**: Follow the instructions in `models/G3/README.md` to download the required datasets (e.g., MP16-Pro). The template's `--train_path` and `--test_path` arguments are not directly used by the G3 training script but are required by the template's configuration.
+*   **Location Encoder**: Download the `location_encoder.pth` file (as mentioned in G3's documentation, typically from GeoCLIP) and place it directly inside the `models/G3/` directory. The `run_G3.py` script expects it at `models/G3/location_encoder.pth`.
+
+### 3. Running G3 Training (Geo-Alignment)
+
+*   An example configuration file `g3_train_config.json` is provided in the root directory.
+*   To run the G3 training (specifically, the geo-alignment part as described in the G3 paper):
+    ```bash
+    python main.py g3_train_config.json --mode train
+    ```
+*   This command will use the template's `main.py` script, which will then detect the `"g3"` model type and execute the `models/G3/run_G3.py` script. The `run_G3.py` script will handle its own training process, including data loading (MP16Dataset) and model checkpointing within the `models/G3/checkpoints/` directory.
+*   Output and logs from `run_G3.py` will be printed to the console.
+
+### 4. Other G3 Functionalities
+
+The G3 framework includes other stages like Geo-diversification and Geo-verification. These are **not** currently integrated into the template's `main.py --mode eval` or `--mode sample` flows.
+
+*   To perform these additional steps, please follow the instructions provided in `models/G3/README.md` (e.g., using `IndexSearch.py`, `llm_predict.py`, etc., directly from the `models/G3/` directory).
 
 ## 依赖项
 
