@@ -1,28 +1,24 @@
+import copy
+
 from munch import Munch
 
-from models.geoclip import GeoCLIP
+from models.discriminator import Discriminator
+from models.generator import Generator
+from models.mapping_network import MappingNetwork
+
+
+# If you use pretrained models here, make sure they are using the `eval` mode.
 
 
 def build_model(args):
-    """
-    Constructs the GeoCLIP model and returns it in a Munch container.
+    generator = Generator(args)
+    discriminator = Discriminator(args)
+    mapping_network = MappingNetwork(args)
 
-    Args:
-        args (Namespace or Munch): Configuration objecy with model arguments such as `from_pretrained` and `queue_size`.
+    generator_ema = copy.deepcopy(generator)
+    mapping_network_ema = copy.deepcopy(mapping_network)
 
-    Returns:
-        Munch: A Munch object containing the image encoder, location encoder, and the GeoCLIP model.
-    """
+    nets = Munch(generator=generator, discriminator=discriminator, mapping_network=mapping_network)
+    nets_ema = Munch(generator=generator_ema, mapping_network=mapping_network_ema)
 
-    geoclip_model = GeoCLIP(
-        from_pretrained=args.from_pretrained,
-        queue_size=args.queue_size,
-    )
-
-    nets = Munch(
-        image_encoder=geoclip_model.image_encoder,
-        location_encoder=geoclip_model.location_encoder,
-        geoclip=geoclip_model,
-    )
-
-    return nets
+    return nets, nets_ema

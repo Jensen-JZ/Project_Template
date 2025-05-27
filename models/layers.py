@@ -1,126 +1,103 @@
-from typing import Optional
+import math
 
-import functional
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
-class GaussianEncoding(nn.Module):
-    """
-    Encodes input coordinates using random Fourier features (RFF) with a fixed projection matrix.
-
-    This layer applies a Gaussian random projection followed by sine and cosine transformations to
-    approximate a shift-invariant kernel (typically RBF/Gaussian kernel). The resulting output doubles
-    the encoded dimension.
-
-    Attributes:
-        b (Tensor): A fixed projection matrix of shape (encoded_size, input_size), sampled from N(0, sigma^2).
-    """
-
-    # Optional[float] is used to indicate that the parameter can be None.
-    def __init__(
-        self,
-        sigma: Optional[float] = None,
-        input_size: Optional[float] = None,
-        encoded_size: Optional[float] = None,
-        b: Optional[torch.Tensor] = None,
-    ):
-        """
-        Initializes the GaussianEncoding layer.
-
-        Args:
-            sigma (Optional[float]): Standard deviation of Gaussian used to sample the projection matrix.
-            input_size (Optional[float]): Input coordinate dimension.
-            encoded_size (Optional[float]): Number of RFF projections (output will be 2 * encoded_size).
-            b (Optional[Tensor]): Optional pre-specified projection matrix. If provided, all other parameters are ignored.
-
-        Returns:
-            None
-        """
-
+# Copied from https://github.com/clovaai/stargan-v2/blob/master/core/model.py#L23
+class ResBlk(nn.Module):
+    def __init__(self, dim_in, dim_out, activation=nn.LeakyReLU(0.2),
+                 normalize=False, down_sample=False):
         super().__init__()
-        if b is None:
-            if sigma is None or input_size is None or encoded_size is None:
-                raise ValueError(
-                    "Arguments `sigma`, `input_size`, and `encoded_size` must be provided if `b` is not given."
-                )
-            b = functional.sample_b(sigma, (encoded_size, input_size))
-        elif sigma is not None or input_size is not None or encoded_size is not None:
-            raise ValueError(
-                "If `b` is provided, `sigma`, `input_size`, and `encoded_size` should not be provided."
-            )
-        self.b = nn.Parameter(b, requires_grad=False)
+        self.activation = activation
+        self.normalize = normalize
+        self.down_sample = down_sample
+        self.change_dim = dim_in != dim_out
+        self._build_weights(dim_in, dim_out)
 
-    def forward(self, v: torch.Tensor) -> torch.Tensor:
-        """
-        Applies the Gaussian RFF encoding to the input tensor.
+    def _build_weights(self, dim_in, dim_out):
+        self.conv1 = nn.Conv2d(dim_in, dim_in, 3, 1, 1)
+        self.conv2 = nn.Conv2d(dim_in, dim_out, 3, 1, 1)
+        if self.normalize:
+            self.norm1 = nn.InstanceNorm2d(dim_in, affine=True)
+            self.norm2 = nn.InstanceNorm2d(dim_in, affine=True)
+        if self.change_dim:
+            self.conv1x1 = nn.Conv2d(dim_in, dim_out, 1, 1, 0, bias=False)
 
-        Args:
-            v (Tensor): Input tensor of shape (N, *, input_size).
+    def _shortcut(self, x):
+        if self.change_dim:
+            x = self.conv1x1(x)
+        if self.down_sample:
+            x = F.avg_pool2d(x, 2)
+        return x
 
-        Returns:
-            Tensor: Encoded tensor of shape (N, *, 2 * encoded_size).
-        """
-        return functional.gaussian_encoding(v, self.b)
+    def _residual(self, x):
+        if self.normalize:
+            x = self.norm1(x)
+        x = self.activation(x)
+        x = self.conv1(x)
+        if self.down_sample:
+            x = F.avg_pool2d(x, 2)
+        if self.normalize:
+            x = self.norm2(x)
+        x = self.activation(x)
+        x = self.conv2(x)
+        return x
 
-
-class BasicEncoding(nn.Module):
-    """
-    Encodes input coordinates using a basic Fourier mapping.
-
-    This layer applies element-wise cosine and sine transformations directly to the input tensor.
-    It is a simplified version of Fourier encoding without random projection.
-    """
-
-    def forward(self, v: torch.Tensor) -> torch.Tensor:
-        """
-        Applies basic sine/cosine encoding to the input tensor.
-
-        Args:
-            v (Tensor): Input tensor of shape (N, *, input_size).
-
-        Returns:
-            Tensor: Encoded tensor of shape (N, *, 2 * input_size).
-        """
-        return functional.basic_encoding(v)
+    def forward(self, x):
+        x = self._shortcut(x) + self._residual(x)
+        return x / math.sqrt(2)  # unit variance
 
 
-class PositionalEncoding(nn.Module):
-    """
-    Applies sinusoidal positional encoding with exponentially scaled frequency bands.
-
-    This encoding mimics the Fourier features used in Transformer models and Neural Fields.
-    Each input dimension is encoded across `m` frequency bands scaled by `sigma^(j/m)`.
-
-    Attributes:
-        sigma (float): Frequency scaling factor.
-        m (int): Number of frequency bands per input dimension.
-    """
-
-    def __init__(self, sigma: float, m: int):
-        """
-        Initializes the PositionalEncoding layer.
-
-        Args:
-            sigma (float): Frequency scaling factor (typically related to the input's spatial range).
-            m (int): Number of frequency bands per input dimension.
-
-        Returns:
-            None
-        """
-
+class AdaIN(nn.Module):
+    def __init__(self, style_dim, num_features):
         super().__init__()
-        self.sigma = sigma
-        self.m = m
+        self.norm = nn.InstanceNorm2d(num_features, affine=False)
+        self.fc = nn.Linear(style_dim, num_features * 2)
 
-    def forward(self, v: torch.Tensor) -> torch.Tensor:
-        """
-        Applies multi-scale positional encoding to the input tensor.
+    def forward(self, x, s):
+        h = self.fc(s)
+        h = h.view(h.size(0), h.size(1), 1, 1)
+        gamma, beta = torch.chunk(h, chunks=2, dim=1)
+        return (1 + gamma) * self.norm(x) + beta
 
-        Args:
-            v (Tensor): Input tensor of shape (N, *, input_size).
 
-        Returns:
-            Tensor: Encoded tensor of shape (N, *, 2 * m * input_size).
-        """
-        return functional.positional_encoding(v, self.sigma, self.m)
+class AdainResBlk(nn.Module):
+    def __init__(self, dim_in, dim_out, style_dim=64, activation=nn.LeakyReLU(0.2), up_sample=False):
+        super().__init__()
+        self.activation = activation
+        self.up_sample = up_sample
+        self.change_dim = dim_in != dim_out
+        self._build_weights(dim_in, dim_out, style_dim)
+
+    def _build_weights(self, dim_in, dim_out, style_dim=64):
+        self.conv1 = nn.Conv2d(dim_in, dim_out, 3, 1, 1)
+        self.conv2 = nn.Conv2d(dim_out, dim_out, 3, 1, 1)
+        self.norm1 = AdaIN(style_dim, dim_in)
+        self.norm2 = AdaIN(style_dim, dim_out)
+        if self.change_dim:
+            self.conv1x1 = nn.Conv2d(dim_in, dim_out, 1, 1, 0, bias=False)
+
+    def _shortcut(self, x):
+        if self.up_sample:
+            x = F.interpolate(x, scale_factor=2, mode='nearest')
+        if self.change_dim:
+            x = self.conv1x1(x)
+        return x
+
+    def _residual(self, x, s):
+        x = self.norm1(x, s)
+        x = self.activation(x)
+        if self.up_sample:
+            x = F.interpolate(x, scale_factor=2, mode='nearest')
+        x = self.conv1(x)
+        x = self.norm2(x, s)
+        x = self.activation(x)
+        x = self.conv2(x)
+        return x
+
+    def forward(self, x, s):
+        out = self._residual(x, s)
+        out = (out + self._shortcut(x)) / math.sqrt(2)
+        return out

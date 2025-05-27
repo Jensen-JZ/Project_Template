@@ -4,358 +4,116 @@ import os
 import pickle
 import shutil
 
-import pandas as pd
-import torch
 
-
-# ----------------------------------------------------
-# Path & Directory Utilities
-# These functions help manage filesystems paths, create directories,
-# and sanitize file names for compatibility.
-# ----------------------------------------------------
-def list_all_images(path, full_path=True, sort=True):
-    """
-    Recursively lists all image files in the given directory.
-
-    Args:
-        path (str): Root directory to search for images.
-        full_path (bool): If True, return full paths. If False, return paths relative to `path`.
-        sort (bool): If True, sort the list of image paths.
-
-    Returns:
-        List[str]: List of image file paths with consistent forward slashes.
-    """
-
-    image_types = [
-        "*.jpg",
-        "*.jpeg",
-        "*.png",
-        "*.bmp",
-        "*.tiff",
-        "*.JPG",
-        "*.JPEG",
-        "*.PNG",
-        "*.BMP",
-        "*.TIFF",
-    ]
-    image_path_list = []
+def list_all_images(path, full_path=True):
+    image_types = ('png', 'jpg', 'jpeg')
+    image_list = []
     for image_type in image_types:
-        image_path_list.extend(
-            glob.glob(os.path.join(path, f"**/*.{image_type}"), recursive=True)
-        )
+        image_list.extend(glob.glob(os.path.join(path, f"**/*.{image_type}"), recursive=True))
     if not full_path:
-        image_path_list = [
-            os.path.relpath(image_path, path) for image_path in image_path_list
-        ]
-    image_path_list = [image_path.replace("\\", "/") for image_path in image_path_list]
-    if sort:
-        image_path_list.sort()
-    return image_path_list
+        image_list = [os.path.relpath(image, path) for image in image_list]
+    image_list = [p.replace("\\", '/') for p in image_list]
+    return image_list
 
 
-def list_sub_folders(path, full_path=True, sort=True):
-    """
-    Lists all subfolders in the given directory.
-
-    Args:
-        path (str): Root directory to search for subfolders.
-        full_path (bool): If True, return full paths. If False, return only folder names.
-        sort (bool): If True, sort the list of subfolder paths.
-
-    Returns:
-        List[str]: List of subfolder paths or names.
-    """
-
-    folders_list = []
-    for folder in os.listdir(path):
-        if os.path.isdir(os.path.join(path, folder)):
-            folder_path = os.path.join(path, folder) if full_path else folder
-            folders_list.append(folder_path)
-    folders_list = [folder.replace("\\", "/") for folder in folders_list]
-    if sort:
-        folders_list.sort()
-    return folders_list
+def list_sub_folders(path, full_path=True):
+    folders = []
+    for name in os.listdir(path):
+        if os.path.isdir(os.path.join(path, name)):
+            x = os.path.join(path, name) if full_path else name
+            folders.append(x)
+    folders.sort()
+    return folders
 
 
-def make_path(path_or_paths):
-    """
-    Creates directories if they do not exist.
-
-    Args:
-        path_or_paths (str or List[str]): A path or list of paths to create.
-
-    Returns:
-        None
-    """
-
-    if type(path_or_paths) != list:
-        path_or_paths = [path_or_paths]
-    for path in path_or_paths:
+def make_path(paths):
+    if type(paths) != list:
+        paths = [paths]
+    for path in paths:
         os.makedirs(path, exist_ok=True)
 
 
 def prepare_dirs(dirs):
-    """
-    Ensures that all directories in the list exist.
-
-    Args:
-        dirs (list): List of directory paths.
-
-    Returns:
-        None
-    """
-
     for dir_ in dirs:
         if not os.path.exists(dir_):
             os.makedirs(dir_)
 
 
-def safe_filename(unsafe, mark=""):
-    """
-    Converts a potentially unsafe filename into a safe format.
-
-    Replaces slashes, backslashes, and colons with underscores, and appends a mark if provided.
-
-    Args:
-        unsafe (str): The original filename (potentially filename) or string to sanitize.
-        mark (str): Optional prefix to prepend to the sanitized filename.
-
-    Returns:
-        str: A sanitized version of the filename, safe for use in file systems.
-    """
-
-    if mark:
-        unsafe = mark + "__" + unsafe
-    unsafe = unsafe.replace("/", "_").replace("\\", "_").replace(":", "_")
-    return unsafe
+def save_json(target_path, config, filename='config'):
+    with open(os.path.join(target_path, f"{filename}.json"), 'w') as f:
+        print(json.dumps(config.__dict__, sort_keys=True, indent=4, ensure_ascii=False), file=f)
 
 
-# ----------------------------------------------------
-# JSON Configuration I/O
-# Functions for saving and loading configurations or metadata in JSON format.
-# ----------------------------------------------------
-def save_json(output_dir, config, filename="config"):
-    """
-    Saves a configuration object to a JSON file.
-
-    Args:
-        output_dir (str): Directory where the JSON file will be saved.
-        config (object): Configuration object to save (with __dict__).
-        filename (str): Name of the JSON file (without extension).
-
-    Returns:
-        None
-    """
-
-    with open(os.path.join(output_dir, f"{filename}.json"), "w") as f:
-        print(
-            json.dumps(config.__dict__, indent=4, sort_keys=True, ensure_ascii=False),
-            file=f,
-        )
-
-
-def load_json(json_path):
-    """
-    Loads a JSON file and returns its content as a Python dictionary.
-
-    Args:
-        json_path (str): Path to the JSON file.
-
-    Returns:
-        dict: Content of the JSON file as a dictionary.
-    """
-
-    if not os.path.exists(json_path):
-        print(f"File {json_path} does not exist.")
-    with open(json_path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-# ----------------------------------------------------
-# Logging and Record Keeping
-# Utilities to append logs to a file and optionally print them to the console.
-# ----------------------------------------------------
-def write_record(record, file_path, print_to_console=False):
-    """
-    Appends a string record to a text file and optionally prints it to the console.
-
-    Args:
-        record (str): The log or message to write.
-        file_path (str): Destination file path.
-        print_to_console (bool): Whether to print the record to the terminal.
-
-    Returns:
-        None
-    """
-
-    if print_to_console:
+def write_record(record, file_path, print_screen=True):
+    if print_screen:
         print(record)
-    with open(file_path, "a") as f:
+    with open(file_path, 'a') as f:
         f.write(record + "\n")
 
 
-# ----------------------------------------------------
-# Model and Sample Management
-# Functions to copy, delete, and construct paths for models and sample outputs.
-# ----------------------------------------------------
 def delete_dir(path):
-    """
-    Deletes a directory and all its contents.
-
-    Args:
-        path (str): Path to the directory to delete.
-
-    Returns:
-        None
-    """
     if path is None:
         return
     try:
         shutil.rmtree(path)
     except:
-        print(f"Failed to delete {path}. It may not exist or be in use.")
+        print(f"Failed to delete dir:{path}")
 
 
-def copy_file(filename, src_dir, dst_dir):
-    """
-    Copies a single file from source to destination directory.
-
-    Args:
-        filename (str): Name of the file to copy.
-        src_dir (str): Source directory.
-        dst_dir (str): Destination directory.
-
-    Returns:
-        None
-    """
-    shutil.copyfile(os.path.join(src_dir, filename), os.path.join(dst_dir, filename))
+def copy(file, src, dst):
+    shutil.copyfile(os.path.join(src, file), os.path.join(dst, file))
 
 
 def delete_model(model_dir, step):
-    """
-    Deletes model ckpt files corresponding to a specific training step.
-
-    Args:
-        model_dir (str): Directory containing the model ckpt files.
-        step (int): Training step number (used in file name pattern).
-
-    Returns:
-        None
-    """
-
     if step == 0:
         return
-    model_files = glob.glob(os.path.join(model_dir, f"{step:06d}*.ckpt"))
+    files = glob.glob(os.path.join(model_dir, f"{step:06d}*.ckpt"))
     try:
-        for model_file in model_files:
-            os.remove(model_file)
+        for file in files:
+            os.remove(file)
     except:
-        print(f"Failed to delete {model_file}. It may not exist or be in use.")
+        print("Failed to delete old models.")
 
 
 def get_sample_path(sample_dir, sample_id):
-    """
-    Constructs the path for a sample file based on its ID.
-
-    Args:
-        sample_dir (str): Directory where the sample files are stored.
-        sample_id (str or int): Unique ID of the sample.
-
-    Returns:
-        str: Full path to the sample file.
-    """
     return os.path.join(sample_dir, f"sample_{str(sample_id)}")
 
 
 def delete_sample(sample_dir, eval_id):
-    """
-    Deletes a saved sample directory based on its ID.
-
-    Args:
-        sample_dir (str): Directory where the sample files are stored.
-        eval_id (str or int): Unique ID of the sample to delete.
-
-    Returns:
-        None
-    """
-
     if not eval_id:
         return
     sample_path = get_sample_path(sample_dir, eval_id)
     try:
         shutil.rmtree(sample_path)
     except:
-        print(f"Failed to delete {sample_path}. It may not exist or be in use.")
+        print(f"Failed to delete dir: {sample_path}")
 
 
-# ----------------------------------------------------
-# Cache Utilities (Pickle-based)
-# Functions for saving, loading, and checking cached Python objects.
-# ----------------------------------------------------
-geo_file_dir = "archive/geo_files"
-cache_dir = "archive/cache"
+cache_dir = 'archive/cache'
 
 
-def save_cache(data, filename):
-    """
-    Saves a Python object to a pickle file in the cache directory.
-
-    Args:
-        data (Any): The Python object to serialize.
-        filename (str): Name of the file to save the object as (without extension).
-
-    Returns:
-        None
-    """
-
+def save_cache(data, name):
     os.makedirs(cache_dir, exist_ok=True)
     try:
-        with open(os.path.join(cache_dir, filename), "wb") as f:
+        with open(os.path.join(cache_dir, name), 'wb') as f:
             pickle.dump(data, f)
     except:
-        print(f"Failed to save cache {filename}. It may not exist or be in use.")
+        print(f"Failed to save cache: {name}")
 
 
-def load_cache(filename):
-    """
-    Loads a Python object from a pickle file in the cache directory.
-
-    Args:
-        filename (str): Name of the file to load the object from (without extension).
-
-    Returns:
-        Any: The deserialized Python object.
-    """
-
-    with open(os.path.join(cache_dir, filename), "rb") as f:
+def load_cache(name):
+    with open(os.path.join(cache_dir, name), 'rb') as f:
         return pickle.load(f)
 
 
-def exist_cache(filename):
-    """
-    Checks if a cache file exists in the cache directory.
-
-    Args:
-        filename (str): Name of the file to check for (without extension).
-
-    Returns:
-        bool: True if the cache file exists, False otherwise.
-    """
-    return os.path.exists(os.path.join(cache_dir, filename))
+def exist_cache(name):
+    return os.path.exists(os.path.join(cache_dir, name))
 
 
-def load_gps_data(metadata_path):
-    """
-    Loads GPS data from a CSV file and converts it to a PyTorch tensor.
-
-    Args:
-        metadata_path (str): Path to the CSV file containing GPS data.
-
-    Returns:
-        Tensor: A PyTorch tensor containing the latitude and longitude data.
-    """
-
-    metadata_info = pd.read_csv(metadata_path)
-    lat_lon_data = metadata_info[["LAT", "LON"]].values
-    coordinates_tensor = torch.tensor(lat_lon_data, dtype=torch.float32)
-    return coordinates_tensor
+def safe_filename(unsafe, mark=''):
+    if mark:
+        unsafe = mark + "__" + unsafe
+    unsafe = unsafe.replace('\\', '_')
+    unsafe = unsafe.replace('/', '_')
+    safe = unsafe.replace(':', '_')
+    return safe
