@@ -1,3 +1,28 @@
+# config.py - Configuration System for Generic PyTorch Template
+# -----------------------------------------------------------------------------
+# This script defines and manages configuration options for the generic
+# PyTorch template framework, primarily designed to be used with `main.py`
+# and the `solver/solver.py` training/evaluation loops. It utilizes
+# `argparse` to provide a comprehensive set of command-line arguments
+# for controlling aspects like data paths, model parameters (generic),
+# training settings, logging, and experiment management.
+#
+# **Important Note for G3 Model Operations**:
+# While some general-purpose configurations defined here (e.g., environment
+# settings like seeding, CUDA options) might be adaptable, the primary
+# workflows for the G3 geolocalization model (such as G3 training,
+# FAISS indexing, LLM-based geolocation predictions) are launched via
+# dedicated scripts in the `scripts/` directory.
+#
+# These G3-specific launcher scripts often define and manage their own
+# command-line arguments tailored to their specific needs. For configuring
+# G3 operations, please refer to the `--help` option of the individual
+# launcher script in the `scripts/` directory (e.g.,
+# `python scripts/execute_g3_training.py --help`).
+#
+# For a general overview of how to run G3 tasks, see `scripts/README.md`
+# or the main project `README.md`.
+# -----------------------------------------------------------------------------
 import argparse
 import json
 import os
