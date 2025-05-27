@@ -75,20 +75,6 @@ def delete_model(model_dir, step):
         print("Failed to delete old models.")
 
 
-def get_sample_path(sample_dir, sample_id):
-    return os.path.join(sample_dir, f"sample_{str(sample_id)}")
-
-
-def delete_sample(sample_dir, eval_id):
-    if not eval_id:
-        return
-    sample_path = get_sample_path(sample_dir, eval_id)
-    try:
-        shutil.rmtree(sample_path)
-    except:
-        print(f"Failed to delete dir: {sample_path}")
-
-
 cache_dir = 'archive/cache'
 
 

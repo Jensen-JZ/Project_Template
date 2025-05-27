@@ -1,80 +1,58 @@
-import numpy as np
 from torch.utils import data
-from torch.utils.data.sampler import WeightedRandomSampler
 from torchvision import transforms
-from torchvision.datasets import ImageFolder
+from torchvision.datasets import ImageFolder # Use official ImageFolder
 
 from data.dataset import DefaultDataset
-from data.dataset import FolderDataset as ImageFolder
-from utils.file import list_all_images
+# Removed: from utils.file import list_all_images - not needed after removing get_selected_loader
+# Removed: import numpy as np - not needed after removing _make_balanced_sampler
+# Removed: from torch.utils.data.sampler import WeightedRandomSampler - not needed
 
 
-def _make_balanced_sampler(labels):
-    class_counts = np.bincount(labels)
-    class_weights = 1. / class_counts
-    weights = class_weights[labels]
-    return WeightedRandomSampler(weights, len(weights))
-
-
-def get_train_loader(train_path, img_size, batch_size, dataset, num_workers=4, **kwargs):
-    norm_mean = [0.5, 0.5, 0.5]
-    norm_std = [0.5, 0.5, 0.5]
-    if dataset == 'CelebA':
-        transform = transforms.Compose([
-            transforms.Resize([img_size, img_size]),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=norm_mean, std=norm_std),
-        ])
-    elif dataset == 'CUB2011':
-        transform = transforms.Compose([
-            transforms.Resize(int(img_size * 76 / 64)),
-            transforms.RandomCrop(img_size),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(norm_mean, norm_std)])
-    else:
-        assert False, f"Unsupported dataset: {dataset}"
+def get_train_loader(train_path, input_shape, batch_size, num_workers=4, **kwargs):
+    # Generic transform
+    transform = transforms.Compose([
+        transforms.Resize([input_shape[0], input_shape[1]]), # Use input_shape
+        transforms.RandomHorizontalFlip(), # Common augmentation
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]) # Generic normalization
+    ])
 
     dataset = ImageFolder(root=train_path, transform=transform)
-    sampler = _make_balanced_sampler(dataset.targets)
+    # Removed sampler logic, using default shuffle=True
 
     return data.DataLoader(dataset=dataset,
                            batch_size=batch_size,
-                           shuffle=True,
-                           sampler=sampler,
+                           shuffle=True, # Standard shuffling
                            num_workers=num_workers,
                            pin_memory=True,
                            drop_last=True)
 
 
-def get_test_loader(test_path, img_size, batch_size, dataset=None, num_workers=4, **kwargs):
-    norm_mean = [0.5, 0.5, 0.5]
-    norm_std = [0.5, 0.5, 0.5]
+def get_test_loader(test_path, input_shape, batch_size, num_workers=4, **kwargs):
+    # Generic transform
     transform = transforms.Compose([
-        transforms.Resize([img_size, img_size]),
+        transforms.Resize([input_shape[0], input_shape[1]]), # Use input_shape
         transforms.ToTensor(),
-        transforms.Normalize(mean=norm_mean, std=norm_std),
+        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]) # Generic normalization
     ])
     dataset = ImageFolder(root=test_path, transform=transform)
 
     return data.DataLoader(dataset=dataset,
                            batch_size=batch_size,
-                           shuffle=True,
+                           shuffle=False, # Typically False for test/eval
                            num_workers=num_workers,
                            pin_memory=True)
 
 
-def get_eval_loader(path, img_size, batch_size, dataset=None, num_workers=4, **kwargs):
+def get_eval_loader(path, input_shape, batch_size, num_workers=4, **kwargs):
     # Path should be an image folder without sub folders.
-    norm_mean = [0.5, 0.5, 0.5]
-    norm_std = [0.5, 0.5, 0.5]
+    # Generic transform
     transform = transforms.Compose([
-        transforms.Resize([img_size, img_size]),
+        transforms.Resize([input_shape[0], input_shape[1]]), # Use input_shape
         transforms.ToTensor(),
-        transforms.Normalize(mean=norm_mean, std=norm_std),
+        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]) # Generic normalization
     ])
-    dataset = DefaultDataset(root=path, transform=transform)
+    dataset = DefaultDataset(root=path, transform=transform) # DefaultDataset for flat folder structure
 
     return data.DataLoader(dataset=dataset,
                            batch_size=batch_size,
@@ -83,22 +61,5 @@ def get_eval_loader(path, img_size, batch_size, dataset=None, num_workers=4, **k
                            pin_memory=True,
                            drop_last=False)
 
-
-def get_selected_loader(selected_path, img_size, dataset=None, num_workers=0, **kwargs):
-    # Path should be an image folder without sub folders.
-    batch_size = len(list_all_images(selected_path))
-    assert batch_size < 64, "too many selected images!"
-    norm_mean = [0.5, 0.5, 0.5]
-    norm_std = [0.5, 0.5, 0.5]
-    transform = transforms.Compose([
-        transforms.Resize([img_size, img_size]),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=norm_mean, std=norm_std),
-    ])
-    dataset = DefaultDataset(root=selected_path, transform=transform)
-
-    return data.DataLoader(dataset=dataset,
-                           batch_size=batch_size,
-                           shuffle=False,
-                           num_workers=num_workers,
-                           pin_memory=True)
+# Removed get_selected_loader as selected_path was removed from config
+# Removed _make_balanced_sampler as it's not universally needed
