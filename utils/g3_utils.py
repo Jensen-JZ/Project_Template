@@ -21,7 +21,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True  # Allow truncated images to be loaded
 
 class MP16Dataset(VisionDataset):
 
-    def __init__(self, root_path='./data/', text_data_path='MP16_Pro_places365.csv', image_data_path='mp-16-images.tar', member_info_path='tar_index.pkl', vision_processor= None, text_processor=None):
+    def __init__(self, root_path='/local/zhji/workspace/DATASETS/G3/MP16-Pro', text_data_path='MP16_Pro_places365.csv', image_data_path='mp-16-images.tar', member_info_path='tar_index.pkl', vision_processor= None, text_processor=None):
         super().__init__(self)
         self.root_path = root_path
         self.text_data_path = text_data_path

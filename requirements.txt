@@ -6,3 +6,5 @@ munch>=2.5.0
 tqdm>=4.64.0
 scipy>=1.8.1
 tensorboardx>=2.2
+accelerate>=1.7.0
+pyproj>=3.7.1
