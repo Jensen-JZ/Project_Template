@@ -31,39 +31,42 @@ def send_message(message, title="Notification", platform_name="default", timeout
     Returns:
         bool: True if the message was sent successfully, False otherwise.
     """
-
+    # Add timestamp to the message
+    timestamp = get_datetime()
+    message_with_time = f"[{timestamp}] {message}"
+    
     base_url = os.environ.get("MESSAGE_PUSH_URL")
     platform_name = platform_name.lower()
 
     if not base_url:
-        print(f"[Fallback] {title}: {message}")
+        print(f"[Fallback] {title}: {message_with_time}")
         return False
 
     try:
         if platform_name == "wechat":
-            url = f"{base_url}?type=corp&title={quote(title)}&description={quote(message)}"
+            url = f"{base_url}?type=corp&title={quote(title)}&description={quote(message_with_time)}"
             res = requests.get(url, timeout=timeout)
 
         elif platform_name == "dingtalk":
             payload = {
                 "msgtype": "text",
-                "text": {"content": f"{title}\n{message}"},
+                "text": {"content": f"{title}\n{message_with_time}"},
             }
             res = requests.post(base_url, json=payload, timeout=timeout)
 
         elif platform_name == "feishu":
             payload = {
                 "msg_type": "text",
-                "content": {"text": f"{title}\n{message}"},
+                "content": {"text": f"{title}\n{message_with_time}"},
             }
             res = requests.post(base_url, json=payload, timeout=timeout)
 
         elif platform_name == "serverchan":
-            url = f"{base_url}?text={quote(title)}&desp={quote(message)}"
+            url = f"{base_url}?text={quote(title)}&desp={quote(message_with_time)}"
             res = requests.get(url, timeout=timeout)
 
         elif platform_name == "bark":
-            url = f"{base_url}/{quote(title)}/{quote(message)}"
+            url = f"{base_url}/{quote(title)}/{quote(message_with_time)}"
             res = requests.get(url, timeout=timeout)
 
         elif platform_name == "telegram":
@@ -74,7 +77,7 @@ def send_message(message, title="Notification", platform_name="default", timeout
             url = f"https://api.telegram.org/bot{token}/sendMessage"
             payload = {
                 "chat_id": chat_id,
-                "text": f"{title}\n{message}",
+                "text": f"{title}\n{message_with_time}",
             }
             res = requests.post(url, json=payload, timeout=timeout)
 
@@ -86,7 +89,7 @@ def send_message(message, title="Notification", platform_name="default", timeout
             payload = {
                 "token": token,
                 "title": title,
-                "content": message,
+                "content": message_with_time,
             }
             res = requests.post(url, json=payload, timeout=timeout)
 
@@ -97,13 +100,13 @@ def send_message(message, title="Notification", platform_name="default", timeout
             url = f"{base_url}/message?token={token}"
             payload = {
                 "title": title,
-                "message": message,
+                "message": message_with_time,
                 "priority": 5,
             }
             res = requests.post(url, json=payload, timeout=timeout)
 
         else:
-            print(f"[Local Fallback] {title}: {message}")
+            print(f"[Local Fallback] {title}: {message_with_time}")
             return False
 
         if res.status_code != 200:
@@ -118,7 +121,21 @@ def send_message(message, title="Notification", platform_name="default", timeout
 
 
 def get_datetime(short=False):
-    format_str = '%Y%m%d%H%M%S' if short else '%Y-%m-%d_%H-%M-%S'
+    """
+    Returns current datetime in standard format used in deep learning projects.
+    
+    Args:
+        short (bool): If True, returns compact format without separators
+    
+    Returns:
+        str: Formatted datetime string
+    """
+    if short:
+        # Compact format: YYYYMMDD
+        format_str = '%Y%m%d'
+    else:
+        # Standard ISO-like format used in deep learning: YYYY-MM-DD_HH-MM-SS
+        format_str = '%Y-%m-%d_%H-%M-%S'
     return datetime.datetime.now().strftime(format_str)
 
 
