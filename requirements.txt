@@ -8,3 +8,4 @@ scipy>=1.8.1
 tensorboardx>=2.2
 accelerate>=1.7.0
 pyproj>=3.7.1
+swanlab>=0.5.9

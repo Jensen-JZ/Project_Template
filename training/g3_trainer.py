@@ -124,7 +124,11 @@ class G3Trainer:
         total_loss = 0
         num_batches = 0
 
+        global_step = epoch_num * len(self.dataloader)  # Track global step for logging
+
         for i, (images, texts, longitude, latitude) in enumerate(t):
+            global_step += 1
+
             # The G3 model's internal text_processor needs to be accessed.
             # If self.model is the prepared model, unwrap it to access original attributes like text_processor.
             current_model_unwrapped = self.accelerator.unwrap_model(self.model)
@@ -148,8 +152,30 @@ class G3Trainer:
             num_batches += 1
 
             if i % 1 == 0 and self.accelerator.is_local_main_process:
-                t.set_postfix_str('loss {:.4f}, lr {:.6f}'.format(loss.item(), self.scheduler.get_last_lr()[0]), refresh=True)
+                t.set_postfix_str('loss {:.4f}, lr {:.6f}, step {}'.format(
+                    loss.item(), 
+                    self.scheduler.get_last_lr()[0],
+                    global_step
+                ), refresh=True)
         
+        if global_step % 1000 == 0 and self.accelerator.is_local_main_process:
+            current_avg_loss = total_loss / num_batches if num_batches > 0 else 0
+            unwrapped_model = self.accelerator.unwrap_model(self.model)
+            checkpoint_path = os.path.join(self.checkpoint_dir, f'g3_epoch_{epoch_num+1}_step_{global_step}.pth')
+            torch.save(unwrapped_model, checkpoint_path)
+            print(f'\nIntermediate checkpoint saved to {checkpoint_path}')
+
+            send_message(
+                f'训练进度更新 - Step {global_step}\n'
+                f'- Epoch: {epoch_num+1}/{num_epochs}\n'
+                f'- 当前批次: {i+1}/{len(self.dataloader)}\n'
+                f'- 当前损失: {current_avg_loss:.4f}\n'
+                f'- 学习率: {self.scheduler.get_last_lr()[0]:.6f}\n'
+                f'- 检查点已保存: {checkpoint_path}',
+                f"G3训练 Step {global_step} 更新",
+                self.platform_name
+            )
+
         self.scheduler.step()
         epoch_time = time.time() - start_time
         

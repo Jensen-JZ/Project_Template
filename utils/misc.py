@@ -4,6 +4,7 @@ import subprocess
 import requests
 from urllib.parse import quote
 from dotenv import load_dotenv
+import pytz
 
 load_dotenv()
 
@@ -120,12 +121,13 @@ def send_message(message, title="Notification", platform_name="default", timeout
         return False
 
 
-def get_datetime(short=False):
+def get_datetime(short=False, tz='CET'):
     """
     Returns current datetime in standard format used in deep learning projects.
     
     Args:
         short (bool): If True, returns compact format without separators
+        tz (str): Timezone, defaults to 'CET' (Central European Time)
     
     Returns:
         str: Formatted datetime string
@@ -136,7 +138,16 @@ def get_datetime(short=False):
     else:
         # Standard ISO-like format used in deep learning: YYYY-MM-DD_HH-MM-SS
         format_str = '%Y-%m-%d_%H-%M-%S'
-    return datetime.datetime.now().strftime(format_str)
+        
+    # Use pytz to handle the timezone conversion
+    
+    # Get current UTC time and convert to Central European Time
+    utc_now = datetime.datetime.now(pytz.UTC)
+    # CET/CEST with automatic DST handling
+    cet_tz = pytz.timezone('Europe/Berlin')
+    cet_time = utc_now.astimezone(cet_tz)
+    
+    return cet_time.strftime(format_str)
 
 
 def get_commit_hash():
